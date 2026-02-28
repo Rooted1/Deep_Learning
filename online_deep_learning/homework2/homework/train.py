@@ -14,9 +14,9 @@ from .utils import load_data
 def train(
     exp_dir: str = "logs",
     model_name: str = "linear",
-    num_epoch: int = 20,
-    lr: float = 1e-2,
-    batch_size: int = 128,
+    num_epoch: int = 140,
+    lr: float = 3e-3,
+    batch_size: int = 64,
     seed: int = 2024,
     **kwargs,
 ):
@@ -46,7 +46,7 @@ def train(
 
     # create loss function and optimizer
     loss_func = ClassificationLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay = 1e-4)
 
     global_step = 0
     metrics = {"train_acc": [], "val_acc": []}
