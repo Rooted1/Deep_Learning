@@ -14,7 +14,7 @@ from .utils import load_data
 def train(
     exp_dir: str = "logs",
     model_name: str = "linear",
-    num_epoch: int = 140,
+    num_epoch: int = 120,
     lr: float = 3e-3,
     batch_size: int = 64,
     seed: int = 2024,
