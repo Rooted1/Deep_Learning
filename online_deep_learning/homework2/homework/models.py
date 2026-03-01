@@ -77,7 +77,6 @@ class MLPClassifier(nn.Module):
           nn.Flatten(),
           nn.Linear(3*h*w, self.hidden_dim),
           nn.ReLU(),
-          nn.Dropout(0.4),
           nn.Linear(self.hidden_dim, num_classes)
         )
 
