@@ -106,12 +106,12 @@ def train_classification(
                 f"val_acc={val_acc:.4f}"
             )
 
-        # save and overwrite the model in the root directory for grading
-        save_model(model)
+    # save and overwrite the model in the root directory for grading
+    save_model(model)
 
-        # save a copy of model weights in the log directory for checkpointing
-        torch.save(model.state_dict(), log_dir / f"{model_name}.th")
-        print(f"Saved model checkpoint to {log_dir / f'{model_name}.th'}")
+    # save a copy of model weights in the log directory for checkpointing
+    torch.save(model.state_dict(), log_dir / f"{model_name}.th")
+    print(f"Saved model checkpoint to {log_dir / f'{model_name}.th'}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a classification model.")
