@@ -52,22 +52,25 @@ def train_classification(
 
     # create metric for evaluation
     global_step = 0
-    metric = AccuracyMetric()
+    train_metric = AccuracyMetric()
+    val_metric = AccuracyMetric()
+
 
     # training loop
     for epoch in range(num_epoch):
 
         # clear metric at the start of each epoch
-        metric.reset()
+        train_metric.reset()
 
         model.train()
 
         for img, label in train_classification_dataset:
-            img, labels = img.to(device), label.to(device)
+            img, label = img.to(device), label.to(device)
 
             optimizer.zero_grad()
             logits = model(img)
-            metric.add(logits, label)
+            preds = logits.argmax(dim=1)
+            train_metric.add(preds, label)
             loss = loss_func(logits, label)
             loss.backward()
             optimizer.step()
@@ -78,6 +81,7 @@ def train_classification(
             global_step += 1
 
         # evaluate on validation set at the end of each epoch
+        val_metric.reset()
         with torch.inference_mode():
             model.eval()
 
@@ -85,10 +89,11 @@ def train_classification(
                 img, label = img.to(device), label.to(device)
 
                 logits = model(img)
-                metric.add(logits, label)
+                preds = logits.argmax(dim=1)
+                val_metric.add(preds, label)
 
-        train_acc = metric.compute()
-        val_acc = metric.compute()
+        train_acc = train_metric.compute()["accuracy"]
+        val_acc = val_metric.compute()["accuracy"]
 
         logger.add_scalar("train/accuracy", train_acc, epoch)
         logger.add_scalar("val/accuracy", val_acc, epoch)
