@@ -27,7 +27,19 @@ class Classifier(nn.Module):
         self.register_buffer("input_std", torch.as_tensor(INPUT_STD))
 
         # TODO: implement
-        pass
+        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm2d(64)  
+
+        # pooling and fully connected layers
+        self.pool = nn.MaxPool2d(2)
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.dropout = nn.Dropout(0.3)
+        self.fc = nn.Linear(64, num_classes)
+
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -41,8 +53,13 @@ class Classifier(nn.Module):
         z = (x - self.input_mean[None, :, None, None]) / self.input_std[None, :, None, None]
 
         # TODO: replace with actual forward pass
-        logits = torch.randn(x.size(0), 6)
-
+        z = self.pool(torch.relu(self.bn1(self.conv1(z))))
+        z = self.pool(torch.relu(self.bn2(self.conv2(z))))
+        z = self.pool(torch.relu(self.bn3(self.conv3(z))))
+        z = self.adaptive_pool(z)
+        z = z.view(z.size(0), -1)
+        z = self.dropout(z)
+        logits = self.fc(z)
         return logits
 
     def predict(self, x: torch.Tensor) -> torch.Tensor:
