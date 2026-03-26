@@ -96,7 +96,36 @@ class Detector(torch.nn.Module):
         self.register_buffer("input_std", torch.as_tensor(INPUT_STD))
 
         # TODO: implement
-        pass
+        # encoder layers
+        self.down1 = nn.Sequential(
+            nn.Conv2d(in_channels, 16, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+        )
+        self.down2 = nn.Sequential(
+            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+        ) 
+
+        # decoder layers
+        self.up1 = nn.Sequential(
+            nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+        )
+        self.up2 = nn.Sequential(
+            nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+        )
+
+        # dropout for regularization
+        self.dropout = nn.Dropout2d(0.3)
+
+        # heads
+        self.segmentation_head = nn.Conv2d(16, num_classes, kernel_size=1)
+        self.depth_head = nn.Conv2d(16, 1, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -115,8 +144,18 @@ class Detector(torch.nn.Module):
         z = (x - self.input_mean[None, :, None, None]) / self.input_std[None, :, None, None]
 
         # TODO: replace with actual forward pass
-        logits = torch.randn(x.size(0), 3, x.size(2), x.size(3))
-        raw_depth = torch.rand(x.size(0), x.size(2), x.size(3))
+
+        # encoder
+        z1 = self.down1(z)
+        z2 = self.down2(z1)
+
+        # decoder
+        z = self.up1(z2)
+        z = z + z1  # skip connection
+        z = self.up2(z)
+
+        logits = self.segmentation_head(z)
+        raw_depth = self.depth_head(z).squeeze(1)  # (b, h, w)
 
         return logits, raw_depth
 
