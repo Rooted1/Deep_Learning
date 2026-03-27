@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torch import nn
 import numpy as np
-from homework.datasets.classification_dataset import load_data
+from homework.datasets.road_dataset import load_data
 from homework.models import load_model, save_model
 from homework.metrics import AccuracyMetric
 import torch.utils.tensorboard as tb    
