@@ -40,10 +40,10 @@ def train_detection(
     model.train()
 
     # create dataloader for training set
-    train_detection_dataset = load_data("road_data/train", transform_pipeline="aug", shuffle=True, batch_size=batch_size, num_workers=2)
+    train_detection_dataset = load_data("drive_data/train", transform_pipeline="aug", shuffle=True, batch_size=batch_size, num_workers=2)
 
     # create dataloader for validation set
-    val_detection_dataset = load_data("road_data/val", transform_pipeline="default", shuffle=False)
+    val_detection_dataset = load_data("drive_data/val", transform_pipeline="default", shuffle=False)
 
     # create loss function and optimizer
     seg_loss_func = torch.nn.CrossEntropyLoss()
@@ -61,12 +61,12 @@ def train_detection(
         # clear metrics at the start of each epoch
         train_metric.reset()
         
-        model.train()
+        model.train()   
 
-        for img, seg_label, depth_label in train_detection_dataset:
-            img = img.to(device)
-            seg_label = seg_label.to(device)
-            depth_label = depth_label.to(device)
+        for batch in train_detection_dataset:
+            img = batch["image"].to(device)
+            seg_label = batch["track"].to(device)
+            depth_label = batch["depth"].to(device)
 
             optimizer.zero_grad()
             logits, pred_depth = model(img)
@@ -90,26 +90,28 @@ def train_detection(
         with torch.inference_mode():
             model.eval()
 
-            for img, label in val_detection_dataset:
-                img, label = img.to(device), label.to(device)
+            for batch in train_detection_dataset:
+                img = batch["image"].to(device)
+                seg_label = batch["track"].to(device)
+                depth_label = batch["depth"].to(device)
 
                 logits = model(img)
                 preds = logits.argmax(dim=1)
-                val_metric.add(preds, label)
+                val_metric.add(preds, seg_label)
 
-        train_acc = train_metric.compute()["accuracy"]
-        val_acc = val_metric.compute()["accuracy"]
+            train_acc = train_metric.compute()["accuracy"]
+            val_acc = val_metric.compute()["accuracy"]
 
-        logger.add_scalar("train/accuracy", train_acc, epoch)
-        logger.add_scalar("val/accuracy", val_acc, epoch)
+            logger.add_scalar("train/accuracy", train_acc, epoch)
+            logger.add_scalar("val/accuracy", val_acc, epoch)
 
-        # print progress
-        if epoch == 0 or epoch == num_epoch - 1 or (epoch + 1) % 10 == 0:
-            print(
-                f"Epoch {epoch + 1:2d} / {num_epoch:2d}: "
-                f"train_acc={train_acc:.4f} "
-                f"val_acc={val_acc:.4f}"
-            )
+            # print progress
+            if epoch == 0 or epoch == num_epoch - 1 or (epoch + 1) % 10 == 0:
+                print(
+                    f"Epoch {epoch + 1:2d} / {num_epoch:2d}: "
+                    f"train_acc={train_acc:.4f} "
+                    f"val_acc={val_acc:.4f}"
+                )
 
     # save the final model checkpoint
     save_model(model)
