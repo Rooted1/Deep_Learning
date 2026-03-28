@@ -7,7 +7,7 @@ from torch import nn
 import numpy as np
 from homework.datasets.road_dataset import load_data
 from homework.models import load_model, save_model
-from homework.metrics import AccuracyMetric
+from homework.metrics import AccuracyMetric, ConfusionMatrix 
 import torch.utils.tensorboard as tb    
 
 def train_detection(
@@ -52,14 +52,16 @@ def train_detection(
 
     # create metric for evaluation
     global_step = 0
-    train_metric = AccuracyMetric()
-    val_metric = AccuracyMetric()
+
+    # using confusion matrix to track per-class performance since dataset is imbalanced
+    train_conf_matrix = ConfusionMatrix(num_classes=6)
+    val_conf_matrix = ConfusionMatrix(num_classes=6)
 
     # training loop
     for epoch in range(num_epoch):
 
         # clear metrics at the start of each epoch
-        train_metric.reset()
+        train_conf_matrix.reset()
         
         model.train()   
 
@@ -71,7 +73,7 @@ def train_detection(
             optimizer.zero_grad()
             logits, pred_depth = model(img)
             preds = logits.argmax(dim=1)
-            train_metric.add(preds, seg_label)  
+            train_conf_matrix.add(preds, seg_label)
             seg_loss = seg_loss_func(logits, seg_label)
             depth_loss = depth_loss_func(pred_depth, depth_label)
             loss = seg_loss + 0.1 * depth_loss
@@ -86,31 +88,33 @@ def train_detection(
             global_step += 1
 
         # evaluate on validation set at the end of each epoch
-        val_metric.reset()
+        val_conf_matrix.reset()
+
         with torch.inference_mode():
             model.eval()
 
-            for batch in train_detection_dataset:
+            for batch in val_detection_dataset:
                 img = batch["image"].to(device)
                 seg_label = batch["track"].to(device)
                 depth_label = batch["depth"].to(device)
 
                 logits = model(img)
                 preds = logits.argmax(dim=1)
-                val_metric.add(preds, seg_label)
+                val_conf_matrix.add(preds, seg_label)
 
-            train_acc = train_metric.compute()["accuracy"]
-            val_acc = val_metric.compute()["accuracy"]
-
-            logger.add_scalar("train/accuracy", train_acc, epoch)
-            logger.add_scalar("val/accuracy", val_acc, epoch)
+            train_metrics = train_conf_matrix.compute()
+            val_metrics = val_conf_matrix.compute()
+            train_miou = train_metrics["iou"]
+            val_miou = val_metrics["iou"]
+            logger.add_scalar("train/miou", train_miou, epoch)
+            logger.add_scalar("val/miou", val_miou, epoch)
 
             # print progress
             if epoch == 0 or epoch == num_epoch - 1 or (epoch + 1) % 10 == 0:
                 print(
                     f"Epoch {epoch + 1:2d} / {num_epoch:2d}: "
-                    f"train_acc={train_acc:.4f} "
-                    f"val_acc={val_acc:.4f}"
+                    f"train_miou={train_miou:.4f} "
+                    f"val_miou={val_miou:.4f}"
                 )
 
     # save the final model checkpoint
