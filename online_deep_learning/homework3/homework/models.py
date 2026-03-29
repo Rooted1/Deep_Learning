@@ -161,11 +161,11 @@ class Detector(torch.nn.Module):
         z3 = self.down3(z2)
 
         # decoder
-        z = self.up3(z3)
+        z = self.up1(z3)
         z = z + z2  # skip connection
-        z = self.up1(z)
-        z = z + z1  # skip connection
         z = self.up2(z)
+        z = z + z1  # skip connection
+        z = self.up3(z)
         z = self.dropout(z)
 
 
