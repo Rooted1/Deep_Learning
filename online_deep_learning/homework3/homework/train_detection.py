@@ -54,8 +54,8 @@ def train_detection(
     global_step = 0
 
     # using confusion matrix to track per-class performance since dataset is imbalanced
-    train_conf_matrix = ConfusionMatrix(num_classes=6)
-    val_conf_matrix = ConfusionMatrix(num_classes=6)
+    train_conf_matrix = ConfusionMatrix(num_classes=3)
+    val_conf_matrix = ConfusionMatrix(num_classes=3)
 
     # training loop
     for epoch in range(num_epoch):
@@ -76,7 +76,7 @@ def train_detection(
             train_conf_matrix.add(preds, seg_label)
             seg_loss = seg_loss_func(logits, seg_label)
             depth_loss = depth_loss_func(pred_depth, depth_label)
-            loss = seg_loss + 0.1 * depth_loss
+            loss = seg_loss + 0.01 * depth_loss
             loss.backward()
             optimizer.step()
 

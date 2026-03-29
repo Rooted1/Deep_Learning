@@ -107,6 +107,11 @@ class Detector(torch.nn.Module):
             nn.BatchNorm2d(32),
             nn.ReLU(),
         ) 
+        self.down3 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+        )
 
         # decoder layers
         self.up1 = nn.Sequential(
@@ -115,6 +120,11 @@ class Detector(torch.nn.Module):
             nn.ReLU(),
         )
         self.up2 = nn.Sequential(
+            nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+        )
+        self.up3 = nn.Sequential(
             nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
             nn.BatchNorm2d(16),
             nn.ReLU(),
@@ -148,11 +158,16 @@ class Detector(torch.nn.Module):
         # encoder
         z1 = self.down1(z)
         z2 = self.down2(z1)
+        z3 = self.down3(z2)
 
         # decoder
-        z = self.up1(z2)
+        z = self.up3(z3)
+        z = z + z2  # skip connection
+        z = self.up1(z)
         z = z + z1  # skip connection
         z = self.up2(z)
+        z = self.dropout(z)
+
 
         logits = self.segmentation_head(z)
         raw_depth = self.depth_head(z).squeeze(1)  # (b, h, w)
