@@ -98,7 +98,7 @@ def train_detection(
                 seg_label = batch["track"].to(device)
                 depth_label = batch["depth"].to(device)
 
-                logits = model(img)
+                logits, _ = model(img)
                 preds = logits.argmax(dim=1)
                 val_conf_matrix.add(preds, seg_label)
 
