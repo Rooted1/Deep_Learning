@@ -115,12 +115,12 @@ class Detector(torch.nn.Module):
 
         # decoder layers
         self.up1 = nn.Sequential(
-            nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),
-            nn.BatchNorm2d(16),
+            nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
         )
         self.up2 = nn.Sequential(
-            nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
+            nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),
             nn.BatchNorm2d(16),
             nn.ReLU(),
         )
