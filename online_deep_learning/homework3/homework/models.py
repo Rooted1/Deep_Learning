@@ -170,7 +170,7 @@ class Detector(torch.nn.Module):
 
 
         logits = self.segmentation_head(z)
-        raw_depth = self.depth_head(z).squeeze(1)  # (b, h, w)
+        raw_depth = torch.sigmoid(self.depth_head(z)).squeeze(1)  # (b, h, w)
 
         return logits, raw_depth
 

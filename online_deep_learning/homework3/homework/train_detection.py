@@ -7,7 +7,7 @@ from torch import nn
 import numpy as np
 from homework.datasets.road_dataset import load_data
 from homework.models import load_model, save_model
-from homework.metrics import AccuracyMetric, ConfusionMatrix 
+from homework.metrics import ConfusionMatrix 
 import torch.utils.tensorboard as tb    
 
 def train_detection(
@@ -47,7 +47,7 @@ def train_detection(
 
     # create loss function and optimizer
     seg_loss_func = torch.nn.CrossEntropyLoss()
-    depth_loss_func = torch.nn.MSELoss()
+    depth_loss_func = torch.nn.L1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # create metric for evaluation
@@ -70,6 +70,10 @@ def train_detection(
             seg_label = batch["track"].to(device)
             depth_label = batch["depth"].to(device)
 
+            if epoch == 0 and global_step == 0:
+                print("seg_label unique values:", torch.unique(seg_label))
+                print("depth_label stats: min =", depth_label.min().item(), "max =", depth_label.max().item()) 
+
             optimizer.zero_grad()
             logits, pred_depth = model(img)
             preds = logits.argmax(dim=1)
@@ -90,6 +94,14 @@ def train_detection(
         # evaluate on validation set at the end of each epoch
         val_conf_matrix.reset()
 
+        # depth MAE (full image)
+        total_depth_error = 0
+        total_pixel_count = 0
+
+        # depth MAE (lane pixels only)
+        total_lane_error = 0.0
+        total_lane_pixel_count = 0
+
         with torch.inference_mode():
             model.eval()
 
@@ -98,16 +110,38 @@ def train_detection(
                 seg_label = batch["track"].to(device)
                 depth_label = batch["depth"].to(device)
 
-                logits, _ = model(img)
+                logits, pred_depth = model(img)
                 preds = logits.argmax(dim=1)
                 val_conf_matrix.add(preds, seg_label)
 
+                # depth MAE 
+                abs_error = torch.abs(pred_depth - depth_label)
+                total_depth_error += abs_error.sum().item()
+                total_pixel_count += torch.numel(depth_label)
+
+                # depth MAE for lane pixels only
+                lane_mask = (seg_label != 0)
+                lane_error = abs_error * lane_mask
+                total_lane_error += lane_error.sum().item()
+                total_lane_pixel_count += lane_mask.sum().item()
+
             train_metrics = train_conf_matrix.compute()
             val_metrics = val_conf_matrix.compute()
+
+            if epoch == 0:
+                print("train_metrics keys:", train_metrics.keys())
             train_miou = train_metrics["iou"]
             val_miou = val_metrics["iou"]
+
+            # compute average depth error for lane pixels only
+            depth_mae = total_depth_error / total_pixel_count
+            lane_depth_mae = total_lane_error / (total_lane_pixel_count + 1e-8)
+
             logger.add_scalar("train/miou", train_miou, epoch)
             logger.add_scalar("val/miou", val_miou, epoch)
+            logger.add_scalar("train/depth_mae", depth_mae, epoch)
+            logger.add_scalar("val/depth_mae", depth_mae, epoch)
+            logger.add_scalar("val/lane_depth_mae", lane_depth_mae, epoch)
 
             # print progress
             if epoch == 0 or epoch == num_epoch - 1 or (epoch + 1) % 10 == 0:
