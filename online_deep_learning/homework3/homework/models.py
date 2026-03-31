@@ -112,19 +112,29 @@ class Detector(torch.nn.Module):
             nn.BatchNorm2d(64),
             nn.ReLU(),
         )
+        self.down4 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+        )
 
         # decoder layers
         self.up1 = nn.Sequential(
+            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+        )
+        self.up2 = nn.Sequential(
             nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2),
             nn.BatchNorm2d(32),
             nn.ReLU(),
         )
-        self.up2 = nn.Sequential(
+        self.up3 = nn.Sequential(
             nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2),
             nn.BatchNorm2d(16),
             nn.ReLU(),
         )
-        self.up3 = nn.Sequential(
+        self.up4 = nn.Sequential(
             nn.ConvTranspose2d(16, 16, kernel_size=2, stride=2),
             nn.BatchNorm2d(16),
             nn.ReLU(),
@@ -159,13 +169,16 @@ class Detector(torch.nn.Module):
         z1 = self.down1(z)
         z2 = self.down2(z1)
         z3 = self.down3(z2)
+        z4 = self.down4(z3)
 
         # decoder
-        z = self.up1(z3)
-        z = z + z2  # skip connection
+        z = self.up1(z4)
+        z = z + z3  # skip connection
         z = self.up2(z)
-        z = z + z1  # skip connection
+        z = z + z2  # skip connection
         z = self.up3(z)
+        z = z + z1  # skip connection
+        z = self.up4(z)
         z = self.dropout(z)
 
 

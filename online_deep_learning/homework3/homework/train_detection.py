@@ -3,12 +3,35 @@ from datetime import datetime
 from pathlib import Path
 
 import torch
-from torch import nn
+import torch.nn.functional as F
 import numpy as np
 from homework.datasets.road_dataset import load_data
 from homework.models import load_model, save_model
 from homework.metrics import ConfusionMatrix 
 import torch.utils.tensorboard as tb    
+
+def dice_loss(logits, targets, eps=1e-6):
+    """
+    Compute Dice loss for binary segmentation
+    Args:
+        logits: (B, C, H, W) raw output from model
+        targets: (B, H, W) long tensor with class labels
+    """
+    # Apply softmax to get probabilities
+    probs = torch.softmax(logits, dim=1)
+    
+    # need to convert targets to one-hot encoding
+    targets_onehot = F.one_hot(targets, num_classes=probs.shape[1]).permute(0, 3, 1, 2).float()  # (B, C, H, W)
+
+    # Compute intersection and union
+    intersection = (probs * targets_onehot).sum(dim=(2, 3))
+    union = probs.sum(dim=(2, 3)) + targets_onehot.sum(dim=(2, 3))
+
+    # Compute Dice coefficient and loss
+    dice = (2 * intersection + eps) / (union + eps)
+    return 1 - dice.mean()
+
+
 
 def train_detection(
     exp_dir: str = "logs",
@@ -46,9 +69,11 @@ def train_detection(
     val_detection_dataset = load_data("drive_data/val", transform_pipeline="default", shuffle=False)
 
     # create loss function and optimizer
-    seg_loss_func = torch.nn.CrossEntropyLoss()
+    weights = torch.tensor([0.2, 1.0, 1.0]).to(device)  # example class weights for imbalanced dataset
+    seg_loss_func = torch.nn.CrossEntropyLoss(weight=weights)
     depth_loss_func = torch.nn.L1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.3)
 
     # create metric for evaluation
     global_step = 0
@@ -77,10 +102,14 @@ def train_detection(
             optimizer.zero_grad()
             logits, pred_depth = model(img)
             preds = logits.argmax(dim=1)
+            if epoch == 0 and global_step == 0:
+                print("preds unique values:", torch.unique(preds))
             train_conf_matrix.add(preds, seg_label)
-            seg_loss = seg_loss_func(logits, seg_label)
+            ce_loss = seg_loss_func(logits, seg_label)
+            dice = dice_loss(logits, seg_label)
+            seg_loss = 0.4 * ce_loss + 0.6 * dice
             depth_loss = depth_loss_func(pred_depth, depth_label)
-            loss = seg_loss + 0.01 * depth_loss
+            loss = seg_loss + 0.07 * depth_loss
             loss.backward()
             optimizer.step()
 
@@ -148,8 +177,11 @@ def train_detection(
                 print(
                     f"Epoch {epoch + 1:2d} / {num_epoch:2d}: "
                     f"train_miou={train_miou:.4f} "
-                    f"val_miou={val_miou:.4f}"
+                    f"val_miou={val_miou:.4f} "
+                    f"val_depth_mae={depth_mae:.4f} "
+                    f"val_lane_depth_mae={lane_depth_mae:.4f}"
                 )
+        scheduler.step()
 
     # save the final model checkpoint
     save_model(model)
@@ -169,4 +201,3 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     train_detection(**vars(args))
-
