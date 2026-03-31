@@ -11,8 +11,10 @@ from pathlib import Path
 from random import seed
 
 import torch
+import numpy as np
+from homework.models import load_model, save_model
+from homework.datasets.road_dataset import load_data
 from torch import nn, optim
-from torch.utils.data import DataLoader
 from homework.metrics import PlannerMetric
 from homework.models import MLPPlanner, TransformerPlanner, load_model, save_model
 from homework.datasets.road_dataset import load_data 
@@ -20,7 +22,7 @@ import torch.utils.tensorboard as tb
 
 def train(
     exp_dir: str = "logs",
-    model_name="linear_planner",
+    model_name="mlp_planner",
     transform_pipeline="state_only",
     num_workers=4,
     lr=1e-3,
