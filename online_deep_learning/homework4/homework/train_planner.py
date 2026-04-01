@@ -24,7 +24,7 @@ def train(
     exp_dir: str = "logs",
     model_name="mlp_planner",
     transform_pipeline="state_only",
-    num_workers=4,
+    num_workers=2,
     lr=1e-3,
     batch_size=128,
     num_epoch=40,
@@ -82,8 +82,8 @@ def train(
                 track_left=batch["track_left"],
                 track_right=batch["track_right"],
             )
-            loss_masked = loss(preds, batch["labels"]) * batch["labels_mask"][..., None]
-            loss_mean = loss_masked.sum() / batch["labels_mask"].sum()
+            loss_masked = loss(preds, batch["waypoints"]) * batch["waypoints_mask"][..., None]
+            loss_mean = loss_masked.sum() / batch["waypoints_mask"].sum()
 
             optimizer.zero_grad()
             loss_mean.backward()
@@ -95,24 +95,28 @@ def train(
         # compute validation metric at the end of each epoch
         metric.reset()
         with torch.inference_mode():
+            model.eval()
             for batch in val_data:
                 batch = {k: v.to(device) for k, v in batch.items()}
-                preds = model(batch)
-                metric.add(preds.cpu(), batch["labels"].cpu(), batch["labels_mask"].cpu())
+                preds = model(
+                    track_left=batch["track_left"],
+                    track_right=batch["track_right"]
+                )
+                metric.add(preds.cpu(), batch["waypoints"].cpu(), batch["waypoints_mask"].cpu())
 
-        val_metrics = metric.compute()
-        logger.add_scalar("val/l1_error", val_metrics["l1_error"], epoch)
-        logger.add_scalar("val/longitudinal_error", val_metrics["longitudinal_error"], epoch)
-        logger.add_scalar("val/lateral_error", val_metrics["lateral_error"], epoch)
+            val_metrics = metric.compute()
+            logger.add_scalar("val/l1_error", val_metrics["l1_error"], epoch)
+            logger.add_scalar("val/longitudinal_error", val_metrics["longitudinal_error"], epoch)
+            logger.add_scalar("val/lateral_error", val_metrics["lateral_error"], epoch)
 
-        # print progress
-        print(
-            f"Epoch {epoch+1}/{num_epoch} - "
-            f"Train Loss: {loss_mean.item():.4f} - "
-            f"Val L1 Error: {val_metrics['l1_error']:.4f} - "
-            f"Val Longitudinal Error: {val_metrics['longitudinal_error']:.4f} - "
-            f"Val Lateral Error: {val_metrics['lateral_error']:.4f}"
-        )
+            # print progress
+            print(
+                f"Epoch {epoch+1}/{num_epoch} - "
+                f"Train Loss: {loss_mean.item():.4f} - "
+                f"Val L1 Error: {val_metrics['l1_error']:.4f} - "
+                f"Val Longitudinal Error: {val_metrics['longitudinal_error']:.4f} - "
+                f"Val Lateral Error: {val_metrics['lateral_error']:.4f}"
+            )
     
     # save the final model checkpoint
     save_model(model)
