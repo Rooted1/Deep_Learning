@@ -76,9 +76,14 @@ def train(
     global_step = 0
 
     for epoch in range(num_epoch):
+        model.train()
         for batch in train_data:
             batch = {k: v.to(device) for k, v in batch.items()}
-            preds = model(image=batch["image"])
+            preds = model(
+                track_left=batch["track_left"],
+                track_right=batch["track_right"],
+                image=batch["image"]
+            )
             loss_masked = loss(preds, batch["waypoints"]) * batch["waypoints_mask"][..., None]
             loss_mean = loss_masked.sum() / batch["waypoints_mask"].sum()
 
@@ -95,7 +100,11 @@ def train(
             model.eval()
             for batch in val_data:
                 batch = {k: v.to(device) for k, v in batch.items()}
-                preds = model(image=batch["image"])
+                preds = model(
+                    track_left=batch["track_left"],
+                    track_right=batch["track_right"],
+                    image=batch["image"]
+                )
                 metric.add(preds.cpu(), batch["waypoints"].cpu(), batch["waypoints_mask"].cpu())
 
             val_metrics = metric.compute()

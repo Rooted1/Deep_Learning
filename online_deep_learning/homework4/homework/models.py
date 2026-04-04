@@ -145,11 +145,15 @@ class CNNPlanner(torch.nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
             nn.AdaptiveAvgPool2d(1),
         )
 
         self.head = nn.Sequential(
-            nn.Linear(64, 128),
+            nn.Linear(128, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
             nn.ReLU(),
             nn.Linear(128, n_waypoints * 2),
         )
