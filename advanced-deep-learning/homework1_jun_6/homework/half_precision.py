@@ -20,7 +20,8 @@ class HalfLinear(torch.nn.Linear):
         # TODO: Implement me
         super().__init__(in_features, out_features, bias)
         self.weight.data = self.weight.data.half()
-        if bias:
+        self.weight.requires_grad_(False)
+        if bias is not None:
             self.bias.data = self.bias.data.half()
             self.bias.requires_grad_(False)
 
